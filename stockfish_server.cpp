@@ -273,17 +273,20 @@ private:
             pv_line.score_cp = std::stoi(score_match[1].str());
         }
         
-        // Extract PV (principal variation)
-        std::regex pv_regex("pv (.+)$");
+        // Extract PV (principal variation) - only the moves after "pv"
+        std::regex pv_regex("pv ([a-h1-8]+(?:\\s+[a-h1-8]+)*)");
         std::smatch pv_match;
         if (std::regex_search(line, pv_match, pv_regex)) {
             pv_line.pv_string = pv_match[1].str();
             
-            // Split PV into individual moves
+            // Split PV into individual moves, validating each move
             std::istringstream pv_stream(pv_line.pv_string);
             std::string move;
             while (pv_stream >> move) {
-                pv_line.pv.push_back(move);
+                // Basic chess move validation (e.g., e2e4, b1c3, etc.)
+                if (isValidChessMove(move)) {
+                    pv_line.pv.push_back(move);
+                }
             }
             
             // First move is the best move
@@ -293,6 +296,30 @@ private:
         }
         
         return pv_line;
+    }
+    
+    bool isValidChessMove(const std::string& move) {
+        // Basic chess move validation
+        // Standard moves: e2e4, b1c3, castling: e1g1, promotions: e7e8q
+        if (move.length() < 4 || move.length() > 5) {
+            return false;
+        }
+        
+        // Check if it looks like a chess move (letter+number to letter+number)
+        if (move[0] >= 'a' && move[0] <= 'h' &&
+            move[1] >= '1' && move[1] <= '8' &&
+            move[2] >= 'a' && move[2] <= 'h' &&
+            move[3] >= '1' && move[3] <= '8') {
+            
+            // If 5 characters, last should be promotion piece
+            if (move.length() == 5) {
+                char promo = move[4];
+                return (promo == 'q' || promo == 'r' || promo == 'b' || promo == 'n');
+            }
+            return true;
+        }
+        
+        return false;
     }
     
     void extractOverallStats(const std::string& output, AnalysisResult& result) {
