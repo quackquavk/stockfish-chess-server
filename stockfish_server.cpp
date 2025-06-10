@@ -273,25 +273,36 @@ private:
             pv_line.score_cp = std::stoi(score_match[1].str());
         }
         
-        // Extract PV (principal variation) - only the moves after "pv"
-        std::regex pv_regex("pv ([a-h1-8]+(?:\\s+[a-h1-8]+)*)");
-        std::smatch pv_match;
-        if (std::regex_search(line, pv_match, pv_regex)) {
-            pv_line.pv_string = pv_match[1].str();
+        // Extract PV (principal variation) - everything after "pv "
+        size_t pv_pos = line.find(" pv ");
+        if (pv_pos != std::string::npos) {
+            std::string pv_section = line.substr(pv_pos + 4); // Skip " pv "
             
-            // Split PV into individual moves, validating each move
-            std::istringstream pv_stream(pv_line.pv_string);
-            std::string move;
-            while (pv_stream >> move) {
-                // Basic chess move validation (e.g., e2e4, b1c3, etc.)
-                if (isValidChessMove(move)) {
-                    pv_line.pv.push_back(move);
+            // Split and filter only valid chess moves
+            std::istringstream pv_stream(pv_section);
+            std::string token;
+            std::vector<std::string> valid_moves;
+            
+            while (pv_stream >> token) {
+                if (isValidChessMove(token)) {
+                    valid_moves.push_back(token);
+                } else {
+                    // Stop at first non-move token (like engine stats)
+                    break;
                 }
             }
             
-            // First move is the best move
-            if (!pv_line.pv.empty()) {
-                pv_line.bestmove = pv_line.pv[0];
+            pv_line.pv = valid_moves;
+            
+            // Create clean PV string from valid moves
+            if (!valid_moves.empty()) {
+                std::ostringstream clean_pv;
+                for (size_t i = 0; i < valid_moves.size(); ++i) {
+                    if (i > 0) clean_pv << " ";
+                    clean_pv << valid_moves[i];
+                }
+                pv_line.pv_string = clean_pv.str();
+                pv_line.bestmove = valid_moves[0];
             }
         }
         
@@ -305,7 +316,7 @@ private:
             return false;
         }
         
-        // Check if it looks like a chess move (letter+number to letter+number)
+        // Check basic format: letter+number to letter+number
         if (move[0] >= 'a' && move[0] <= 'h' &&
             move[1] >= '1' && move[1] <= '8' &&
             move[2] >= 'a' && move[2] <= 'h' &&
@@ -314,12 +325,21 @@ private:
             // If 5 characters, last should be promotion piece
             if (move.length() == 5) {
                 char promo = move[4];
-                return (promo == 'q' || promo == 'r' || promo == 'b' || promo == 'n');
+                return (promo == 'q' || promo == 'r' || promo == 'b' || promo == 'n' ||
+                        promo == 'Q' || promo == 'R' || promo == 'B' || promo == 'N');
             }
             return true;
         }
         
-        return false;
+        // Also exclude obvious non-moves like numbers, "score", "cp", etc.
+        if (move == "score" || move == "cp" || move == "mate" || 
+            move == "nodes" || move == "nps" || move == "time" ||
+            move == "depth" || move == "multipv" || move == "hashfull" ||
+            move == "tbhits" || std::all_of(move.begin(), move.end(), ::isdigit)) {
+            return false;
+        }
+        
+        return false; // If it doesn't match standard move format, reject it
     }
     
     void extractOverallStats(const std::string& output, AnalysisResult& result) {
