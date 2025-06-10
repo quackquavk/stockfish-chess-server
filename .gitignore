@@ -1,0 +1,38 @@
+# Create .gitignore to exclude unnecessary files
+cat > .gitignore << 'EOF'
+# Compiled binaries
+chess_server
+*.o
+*.so
+*.dylib
+*.exe
+
+# Logs and runtime files
+logs/
+pids/
+*.log
+*.pid
+
+# Build artifacts
+build/
+dist/
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.backup
+*.bak
+
+# Environment files (if you add any later)
+.env
+.env.local
+EOF
